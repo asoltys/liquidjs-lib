@@ -5,7 +5,7 @@ const payments = require('./payments');
 const bscript = require('./script');
 const types = require('./types');
 const bech32 = require('bech32');
-// const blech32 = require('blech32');
+const blech32 = require('blech32');
 const bs58check = require('bs58check');
 const typeforce = require('typeforce');
 function fromBase58Check(address) {

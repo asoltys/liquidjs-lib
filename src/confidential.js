@@ -1,6 +1,6 @@
 'use strict';
 Object.defineProperty(exports, '__esModule', { value: true });
-//const secp256k1 = require('secp256k1-zkp');
+const secp256k1 = require('secp256k1-zkp');
 const bufferutils = require('./bufferutils');
 const crypto = require('./crypto');
 function nonceHash(pubkey, privkey) {

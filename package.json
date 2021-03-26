@@ -56,7 +56,6 @@
     "types"
   ],
   "dependencies": {
-    "@asoltys/blech32": "github:asoltys/blech32",
     "axios": "^0.21.1",
     "bech32": "^1.1.2",
     "bip174": "vulpemventures/bip174.git",

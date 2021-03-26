@@ -9,3 +9,4 @@ test/integration/*.js
 # for dev
 ts_src/*.js
 ts_src/payments/*.js
+src

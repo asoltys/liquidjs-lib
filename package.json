@@ -56,13 +56,14 @@
     "types"
   ],
   "dependencies": {
+    "@asoltys/blech32": "github:asoltys/blech32",
     "axios": "^0.21.1",
     "bech32": "^1.1.2",
     "bip174": "vulpemventures/bip174.git",
     "bip32": "^2.0.4",
     "bip66": "^1.1.0",
     "bitcoin-ops": "^1.4.0",
-    "blech32": "vulpemventures/blech32.git",
+    "blech32": "github:asoltys/blech32",
     "bs58check": "^2.0.0",
     "buffer-es6": "^4.9.3",
     "create-hash": "^1.1.0",

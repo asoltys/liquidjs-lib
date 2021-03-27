@@ -5,7 +5,7 @@ import * as bscript from './script';
 import * as types from './types';
 
 const bech32 = require('bech32');
-const blech32 = require('blech32');
+const blech32 = require('@asoltys/blech32');
 const bs58check = require('bs58check');
 const typeforce = require('typeforce');
 

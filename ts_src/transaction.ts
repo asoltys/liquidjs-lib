@@ -270,6 +270,7 @@ export class Transaction {
     rangeProof?: Buffer,
     surjectionProof?: Buffer,
   ): number {
+    /*
     typeforce(
       types.tuple(
         types.Buffer,
@@ -285,6 +286,7 @@ export class Transaction {
       ),
       arguments,
     );
+    */
 
     // Add the output and return the output's index
     return (

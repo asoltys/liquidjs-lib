@@ -3158,21 +3158,23 @@ class Transaction {
     );
   }
   addOutput(scriptPubKey, value, asset, nonce, rangeProof, surjectionProof) {
-    typef(
-      types.tuple(
-        types.Buffer,
-        types.oneOf(
-          types.ConfidentialValue,
-          types.ConfidentialCommitment,
-          types.BufferOne,
-        ),
-        types.oneOf(types.ConfidentialCommitment, types.BufferOne),
-        types.oneOf(types.ConfidentialCommitment, types.BufferOne),
-        types.maybe(types.Buffer),
-        types.maybe(types.Buffer),
-      ),
-      arguments,
-    );
+    /*
+        typeforce(
+          types.tuple(
+            types.Buffer,
+            types.oneOf(
+              types.ConfidentialValue,
+              types.ConfidentialCommitment,
+              types.BufferOne,
+            ),
+            types.oneOf(types.ConfidentialCommitment, types.BufferOne),
+            types.oneOf(types.ConfidentialCommitment, types.BufferOne),
+            types.maybe(types.Buffer),
+            types.maybe(types.Buffer),
+          ),
+          arguments,
+        );
+        */
     // Add the output and return the output's index
     return (
       this.outs.push({

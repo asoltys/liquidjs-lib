@@ -4244,6 +4244,15 @@ var __importStar$2 =
 const bcrypto = __importStar$2(crypto$2);
 
 /**
+ * returns true if the issuance's token amount is not 0x00 or null buffer.
+ * @param issuance issuance to test
+ */
+function hasTokenAmount(issuance) {
+  if (issuance.tokenAmount && issuance.tokenAmount.length > 1) return true;
+  return false;
+}
+var hasTokenAmount_1 = hasTokenAmount;
+/**
  * Checks if a contract given as parameter is valid or not.
  * @param contract contract to validate.
  */
@@ -4349,6 +4358,7 @@ function toConfidentialTokenAmount(tokenAmount, precision = 8) {
 }
 
 var issuance = /*#__PURE__*/Object.defineProperty({
+	hasTokenAmount: hasTokenAmount_1,
 	validateIssuanceContract: validateIssuanceContract_1,
 	hashContract: hashContract_1,
 	newIssuance: newIssuance_1,
@@ -5113,6 +5123,37 @@ class Psbt$1 {
       const inputsBlindingData = yield Promise.all(
         blindingDataLike.map((data, i) => toBlindingData(data, witnesses[i])),
       );
+      // loop over inputs and create blindingData object in case of issuance
+      for (const input of this.__CACHE.__TX.ins) {
+        if (input.issuance) {
+          const asset = issuance.calculateAsset(input.issuance.assetEntropy);
+          const value = confidential$1
+            .confidentialValueToSatoshi(input.issuance.assetAmount)
+            .toString(10);
+          inputsBlindingData.unshift({
+            value,
+            asset,
+            assetBlindingFactor: transaction.ZERO,
+            valueBlindingFactor: transaction.ZERO,
+          });
+          if (issuance.hasTokenAmount(input.issuance)) {
+            const isConfidentialIssuance = false; // TODO handle confidential issuance
+            const token = issuance.calculateReissuanceToken(
+              input.issuance.assetEntropy,
+              isConfidentialIssuance,
+            );
+            const tokenValue = confidential$1
+              .confidentialValueToSatoshi(input.issuance.tokenAmount)
+              .toString(10);
+            inputsBlindingData.unshift({
+              value: tokenValue,
+              asset: token,
+              assetBlindingFactor: transaction.ZERO,
+              valueBlindingFactor: transaction.ZERO,
+            });
+          }
+        }
+      }
       // get data (satoshis & asset) outputs to blind
       const outputsData = outputIndexes.map(index => {
         const output = c.__TX.outs[index];

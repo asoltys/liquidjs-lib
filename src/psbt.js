@@ -827,7 +827,7 @@ class Psbt {
           }
           if (issuance_1.hasTokenAmount(input.issuance)) {
             const token = issuance_1.calculateReissuanceToken(
-              input.issuance.assetEntropy,
+              entropy,
               isConfidentialIssuance,
             );
             const tokenValue = confidential

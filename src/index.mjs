@@ -2716,8 +2716,36 @@ function rangeProof(
   minBits,
 ) {
   return __awaiter$1(this, void 0, void 0, function*() {
-    const { generator, pedersen, rangeproof } = yield secp256k1Promise;
     const nonce = yield nonceHash(blindingPubkey, ephemeralPrivkey);
+    return rangeProofWithoutNonceHash(
+      value,
+      nonce,
+      asset,
+      assetBlindingFactor,
+      valueBlindFactor,
+      valueCommit,
+      scriptPubkey,
+      minValue,
+      exp,
+      minBits,
+    );
+  });
+}
+var rangeProof_1 = rangeProof;
+function rangeProofWithoutNonceHash(
+  value,
+  nonce,
+  asset,
+  assetBlindingFactor,
+  valueBlindFactor,
+  valueCommit,
+  scriptPubkey,
+  minValue,
+  exp,
+  minBits,
+) {
+  return __awaiter$1(this, void 0, void 0, function*() {
+    const { generator, pedersen, rangeproof } = yield secp256k1Promise;
     const gen = generator.generateBlinded(asset, assetBlindingFactor);
     const message = Buffer$1.concat([asset, assetBlindingFactor]);
     const commit = pedersen.commitParse(valueCommit);
@@ -2738,7 +2766,7 @@ function rangeProof(
     );
   });
 }
-var rangeProof_1 = rangeProof;
+var rangeProofWithoutNonceHash_1 = rangeProofWithoutNonceHash;
 function surjectionProof(
   outputAsset,
   outputAssetBlindingFactor,
@@ -2810,6 +2838,7 @@ var confidential$2 = /*#__PURE__*/Object.defineProperty({
 	unblindOutputWithNonce: unblindOutputWithNonce_1,
 	rangeProofInfo: rangeProofInfo_1,
 	rangeProof: rangeProof_1,
+	rangeProofWithoutNonceHash: rangeProofWithoutNonceHash_1,
 	surjectionProof: surjectionProof_1,
 	confidentialValueToSatoshi: confidentialValueToSatoshi_1,
 	satoshiToConfidentialValue: satoshiToConfidentialValue_1,
@@ -5050,13 +5079,24 @@ class Psbt$1 {
       blindingDataLike,
       blindingPubkeys,
       undefined,
+      undefined,
       opts,
     );
   }
-  blindOutputsByIndex(inputsBlindingData, outputsBlindingPubKeys, opts) {
+  blindOutputsByIndex(
+    inputsBlindingData,
+    outputsBlindingPubKeys,
+    issuancesBlindingKeys,
+    opts,
+  ) {
     const blindingPrivKeysArgs = range(this.__CACHE.__TX.ins.length).map(
       inputIndex => inputsBlindingData.get(inputIndex),
     );
+    const blindingPrivKeysIssuancesArgs = issuancesBlindingKeys
+      ? range(this.__CACHE.__TX.ins.length).map(inputIndex =>
+          issuancesBlindingKeys.get(inputIndex),
+        )
+      : [];
     const outputIndexes = [];
     const blindingPublicKey = [];
     for (const [outputIndex, pubBlindingKey] of outputsBlindingPubKeys) {
@@ -5066,6 +5106,7 @@ class Psbt$1 {
     return this.rawBlindOutputs(
       blindingPrivKeysArgs,
       blindingPublicKey,
+      blindingPrivKeysIssuancesArgs,
       outputIndexes,
       opts,
     );
@@ -5086,7 +5127,13 @@ class Psbt$1 {
     this.data.clearFinalizedInput(inputIndex);
     return this;
   }
-  rawBlindOutputs(blindingDataLike, blindingPubkeys, outputIndexes, opts) {
+  rawBlindOutputs(
+    blindingDataLike,
+    blindingPubkeys,
+    issuanceBlindingPrivKeys = [],
+    outputIndexes,
+    opts,
+  ) {
     return __awaiter(this, void 0, void 0, function*() {
       if (this.data.inputs.some(v => !v.nonWitnessUtxo && !v.witnessUtxo))
         throw new Error(
@@ -5124,35 +5171,104 @@ class Psbt$1 {
         blindingDataLike.map((data, i) => toBlindingData(data, witnesses[i])),
       );
       // loop over inputs and create blindingData object in case of issuance
+      let i = 0;
       for (const input of this.__CACHE.__TX.ins) {
         if (input.issuance) {
-          const asset = issuance.calculateAsset(input.issuance.assetEntropy);
+          const isConfidentialIssuance =
+            issuanceBlindingPrivKeys && issuanceBlindingPrivKeys[i]
+              ? true
+              : false;
+          const entropy = issuance.generateEntropy(
+            { txHash: input.hash, vout: input.index },
+            input.issuance.assetEntropy,
+          );
+          const asset = issuance.calculateAsset(entropy);
           const value = confidential$1
             .confidentialValueToSatoshi(input.issuance.assetAmount)
             .toString(10);
-          inputsBlindingData.unshift({
+          const blindingDataIssuance = {
             value,
             asset,
-            assetBlindingFactor: transaction.ZERO,
-            valueBlindingFactor: transaction.ZERO,
-          });
+            assetBlindingFactor: isConfidentialIssuance
+              ? randomBytes()
+              : transaction.ZERO,
+            valueBlindingFactor: isConfidentialIssuance
+              ? randomBytes()
+              : transaction.ZERO,
+          };
+          inputsBlindingData.unshift(blindingDataIssuance);
+          if (isConfidentialIssuance) {
+            const assetCommitment = yield confidential$1.assetCommitment(
+              asset,
+              blindingDataIssuance.assetBlindingFactor,
+            );
+            const valueCommitment = yield confidential$1.valueCommitment(
+              value,
+              assetCommitment,
+              blindingDataIssuance.valueBlindingFactor,
+            );
+            const rangeProof = yield confidential$1.rangeProofWithoutNonceHash(
+              value,
+              issuanceBlindingPrivKeys[i].assetKey,
+              asset,
+              blindingDataIssuance.assetBlindingFactor,
+              blindingDataIssuance.valueBlindingFactor,
+              valueCommitment,
+              Buffer$1.alloc(0),
+              '1',
+              0,
+              52,
+            );
+            this.__CACHE.__TX.ins[i].issuanceRangeProof = rangeProof;
+            this.__CACHE.__TX.ins[i].issuance.assetAmount = valueCommitment;
+          }
           if (issuance.hasTokenAmount(input.issuance)) {
-            const isConfidentialIssuance = false; // TODO handle confidential issuance
             const token = issuance.calculateReissuanceToken(
-              input.issuance.assetEntropy,
+              entropy,
               isConfidentialIssuance,
             );
             const tokenValue = confidential$1
               .confidentialValueToSatoshi(input.issuance.tokenAmount)
               .toString(10);
-            inputsBlindingData.unshift({
+            const blindingDataIssuance = {
               value: tokenValue,
               asset: token,
-              assetBlindingFactor: transaction.ZERO,
-              valueBlindingFactor: transaction.ZERO,
-            });
+              assetBlindingFactor: isConfidentialIssuance
+                ? randomBytes()
+                : transaction.ZERO,
+              valueBlindingFactor: isConfidentialIssuance
+                ? randomBytes()
+                : transaction.ZERO,
+            };
+            inputsBlindingData.unshift(blindingDataIssuance);
+            if (isConfidentialIssuance) {
+              const assetCommitment = yield confidential$1.assetCommitment(
+                token,
+                blindingDataIssuance.assetBlindingFactor,
+              );
+              const valueCommitment = yield confidential$1.valueCommitment(
+                tokenValue,
+                assetCommitment,
+                blindingDataIssuance.valueBlindingFactor,
+              );
+              const rangeProof = yield confidential$1.rangeProofWithoutNonceHash(
+                tokenValue,
+                issuanceBlindingPrivKeys[i].tokenKey,
+                token,
+                blindingDataIssuance.assetBlindingFactor,
+                blindingDataIssuance.valueBlindingFactor,
+                valueCommitment,
+                Buffer$1.alloc(0),
+                '1',
+                0,
+                52,
+              );
+              this.__CACHE.__TX.ins[i].inflationRangeProof = rangeProof;
+              this.__CACHE.__TX.ins[i].issuance.tokenAmount = valueCommitment;
+            }
           }
         }
+        i++;
       }
       // get data (satoshis & asset) outputs to blind
       const outputsData = outputIndexes.map(index => {

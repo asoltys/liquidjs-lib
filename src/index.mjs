@@ -3700,50 +3700,33 @@ class Block$1 {
     this.prevHash = undefined;
     this.merkleRoot = undefined;
     this.timestamp = 0;
+    this.height = 0;
     this.witnessCommit = undefined;
     this.bits = 0;
     this.nonce = 0;
     this.transactions = undefined;
   }
-  static fromBuffer(buffer) {
-    if (buffer.length < 80) throw new Error('Buffer too small (< 80 bytes)');
-    let offset = 0;
-    const readSlice = n => {
-      offset += n;
-      return buffer.slice(offset - n, offset);
-    };
-    const readUInt32 = () => {
-      const i = buffer.readUInt32LE(offset);
-      offset += 4;
-      return i;
-    };
-    const readInt32 = () => {
-      const i = buffer.readInt32LE(offset);
-      offset += 4;
-      return i;
-    };
+  static fromBuffer(buffer, headersOnly = false) {
+    if (buffer.length < 84) throw new Error('Buffer too small (< 84 bytes)');
+    const bufferReader = new bufferutils$1.BufferReader(buffer);
     const block = new Block$1();
-    block.version = readInt32();
-    block.prevHash = readSlice(32);
-    block.merkleRoot = readSlice(32);
-    block.timestamp = readUInt32();
-    block.bits = readUInt32();
-    block.nonce = readUInt32();
-    if (buffer.length === 80) return block;
-    const readVarInt = () => {
-      const vi = varuint$1.decode(buffer, offset);
-      offset += varuint$1.decode.bytes;
-      return vi;
-    };
+    block.version = bufferReader.readInt32();
+    block.prevHash = bufferReader.readSlice(32);
+    block.merkleRoot = bufferReader.readSlice(32);
+    block.timestamp = bufferReader.readUInt32();
+    block.height = bufferReader.readUInt32();
+    block.bits = bufferReader.readUInt32();
+    block.nonce = bufferReader.readUInt32();
+    if (headersOnly || buffer.length === 84) return block;
     const readTransaction = () => {
       const tx = transaction.Transaction.fromBuffer(
-        buffer.slice(offset),
+        bufferReader.buffer.slice(bufferReader.offset),
         true,
       );
-      offset += tx.byteLength();
+      bufferReader.offset += tx.byteLength();
       return tx;
     };
-    const nTransactions = readVarInt();
+    const nTransactions = bufferReader.readVarInt();
     block.transactions = [];
     for (let i = 0; i < nTransactions; ++i) {
       const tx = readTransaction();
@@ -3754,8 +3737,8 @@ class Block$1 {
     if (witnessCommit) block.witnessCommit = witnessCommit;
     return block;
   }
-  static fromHex(hex) {
-    return Block$1.fromBuffer(Buffer$1.from(hex, 'hex'));
+  static fromHex(hex, headersOnly = false) {
+    return Block$1.fromBuffer(Buffer$1.from(hex, 'hex'), headersOnly);
   }
   static calculateTarget(bits) {
     const exponent = ((bits & 0xff000000) >> 24) - 3;
@@ -3814,9 +3797,9 @@ class Block$1 {
     return base * 3 + total;
   }
   byteLength(headersOnly, allowWitness = true) {
-    if (headersOnly || !this.transactions) return 80;
+    if (headersOnly || !this.transactions) return 84;
     return (
-      80 +
+      84 +
       varuint$1.encodingLength(this.transactions.length) +
       this.transactions.reduce((a, x) => a + x.byteLength(allowWitness), 0)
     );
@@ -3835,32 +3818,20 @@ class Block$1 {
   // TODO: buffer, offset compatibility
   toBuffer(headersOnly) {
     const buffer = Buffer$1.allocUnsafe(this.byteLength(headersOnly));
-    let offset = 0;
-    const writeSlice = slice => {
-      slice.copy(buffer, offset);
-      offset += slice.length;
-    };
-    const writeInt32 = i => {
-      buffer.writeInt32LE(i, offset);
-      offset += 4;
-    };
-    const writeUInt32 = i => {
-      buffer.writeUInt32LE(i, offset);
-      offset += 4;
-    };
-    writeInt32(this.version);
-    writeSlice(this.prevHash);
-    writeSlice(this.merkleRoot);
-    writeUInt32(this.timestamp);
-    writeUInt32(this.bits);
-    writeUInt32(this.nonce);
+    const bufferWriter = new bufferutils$1.BufferWriter(buffer);
+    bufferWriter.writeInt32(this.version);
+    bufferWriter.writeSlice(this.prevHash);
+    bufferWriter.writeSlice(this.merkleRoot);
+    bufferWriter.writeUInt32(this.timestamp);
+    bufferWriter.writeUInt32(this.bits);
+    bufferWriter.writeUInt32(this.nonce);
     if (headersOnly || !this.transactions) return buffer;
-    varuint$1.encode(this.transactions.length, buffer, offset);
-    offset += varuint$1.encode.bytes;
+    varuint$1.encode(this.transactions.length, buffer, bufferWriter.offset);
+    bufferWriter.offset += varuint$1.encode.bytes;
     this.transactions.forEach(tx => {
       const txSize = tx.byteLength(); // TODO: extract from toBuffer?
-      tx.toBuffer(buffer, offset);
-      offset += txSize;
+      tx.toBuffer(buffer, bufferWriter.offset);
+      bufferWriter.offset += txSize;
     });
     return buffer;
   }

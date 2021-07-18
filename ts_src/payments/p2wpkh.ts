@@ -1,4 +1,3 @@
-import * as baddress from '../address';
 import * as bcrypto from '../crypto';
 import { liquid as LIQUID_NETWORK } from '../networks';
 import * as bscript from '../script';
@@ -53,17 +52,6 @@ export function p2wpkh(a: Payment, opts?: PaymentOpts): Payment {
       data: Buffer.from(data),
     };
   });
-  const _confidentialAddress = lazy.value(() => {
-    const result = baddress.fromBlech32(a.confidentialAddress!);
-    return {
-      blindingKey: result.pubkey,
-      unconfidentialAddress: baddress.toBech32(
-        result.data.slice(2),
-        result.version,
-        network!.bech32,
-      ),
-    };
-  });
 
   const o: Payment = { name: 'p2wpkh', network };
 
@@ -78,10 +66,6 @@ export function p2wpkh(a: Payment, opts?: PaymentOpts): Payment {
     if (a.output) return a.output.slice(2, 22);
     if (a.address) return _address().data;
     if (a.pubkey || o.pubkey) return bcrypto.hash160(a.pubkey! || o.pubkey!);
-    if (a.confidentialAddress) {
-      const addr = _confidentialAddress().unconfidentialAddress;
-      return baddress.fromBech32(addr).data;
-    }
   });
   lazy.prop(o, 'output', () => {
     if (!o.hash) return;
@@ -106,18 +90,7 @@ export function p2wpkh(a: Payment, opts?: PaymentOpts): Payment {
     return [a.signature, a.pubkey];
   });
   lazy.prop(o, 'blindkey', () => {
-    if (a.confidentialAddress) return _confidentialAddress().blindingKey;
     if (a.blindkey) return a.blindkey;
-  });
-  lazy.prop(o, 'confidentialAddress', () => {
-    if (!o.address) return;
-    if (!o.blindkey) return;
-    const res = baddress.fromBech32(o.address);
-    const data = Buffer.concat([
-      Buffer.from([res.version, res.data.length]),
-      res.data,
-    ]);
-    return baddress.toBlech32(data, o.blindkey!, o.network!.blech32);
   });
 
   // extended validation
@@ -174,20 +147,6 @@ export function p2wpkh(a: Payment, opts?: PaymentOpts): Payment {
       const pkh = bcrypto.hash160(a.witness[1]);
       if (hash.length > 0 && !hash.equals(pkh))
         throw new TypeError('Hash mismatch');
-    }
-
-    if (a.confidentialAddress) {
-      if (
-        a.address &&
-        a.address !== _confidentialAddress().unconfidentialAddress
-      )
-        throw new TypeError('Address mismatch');
-      if (
-        blindkey.length > 0 &&
-        !blindkey.equals(_confidentialAddress().blindingKey as Buffer)
-      )
-        throw new TypeError('Blindkey mismatch');
-      else blindkey = _confidentialAddress().blindingKey;
     }
 
     if (a.blindkey) {

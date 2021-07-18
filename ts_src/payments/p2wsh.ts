@@ -1,4 +1,3 @@
-import * as baddress from '../address';
 import * as bcrypto from '../crypto';
 import { liquid as LIQUID_NETWORK } from '../networks';
 import * as bscript from '../script';
@@ -75,17 +74,6 @@ export function p2wsh(a: Payment, opts?: PaymentOpts): Payment {
   const _rchunks = lazy.value(() => {
     return bscript.decompile(a.redeem!.input!);
   }) as StackFunction;
-  const _confidentialAddress = lazy.value(() => {
-    const result = baddress.fromBlech32(a.confidentialAddress!);
-    return {
-      blindingKey: result.pubkey,
-      unconfidentialAddress: baddress.toBech32(
-        result.data.slice(2),
-        result.version,
-        network!.bech32,
-      ),
-    };
-  });
 
   const o: Payment = { network };
 
@@ -99,10 +87,6 @@ export function p2wsh(a: Payment, opts?: PaymentOpts): Payment {
     if (a.output) return a.output.slice(2);
     if (a.address) return _address().data;
     if (o.redeem && o.redeem.output) return bcrypto.sha256(o.redeem.output);
-    if (a.confidentialAddress) {
-      const addr = _confidentialAddress().unconfidentialAddress;
-      return baddress.fromBech32(addr).data;
-    }
   });
   lazy.prop(o, 'output', () => {
     if (!o.hash) return;
@@ -148,18 +132,7 @@ export function p2wsh(a: Payment, opts?: PaymentOpts): Payment {
     return nameParts.join('-');
   });
   lazy.prop(o, 'blindkey', () => {
-    if (a.confidentialAddress) return _confidentialAddress().blindingKey;
     if (a.blindkey) return a.blindkey;
-  });
-  lazy.prop(o, 'confidentialAddress', () => {
-    if (!o.address) return;
-    if (!o.blindkey) return;
-    const res = baddress.fromBech32(o.address);
-    const data = Buffer.concat([
-      Buffer.from([res.version, res.data.length]),
-      res.data,
-    ]);
-    return baddress.toBlech32(data, o.blindkey!, o.network!.blech32);
   });
 
   // extended validation
@@ -237,20 +210,6 @@ export function p2wsh(a: Payment, opts?: PaymentOpts): Payment {
         !a.redeem.output.equals(a.witness[a.witness.length - 1])
       )
         throw new TypeError('Witness and redeem.output mismatch');
-    }
-
-    if (a.confidentialAddress) {
-      if (
-        a.address &&
-        a.address !== _confidentialAddress().unconfidentialAddress
-      )
-        throw new TypeError('Address mismatch');
-      if (
-        blindkey.length > 0 &&
-        !blindkey.equals(_confidentialAddress().blindingKey as Buffer)
-      )
-        throw new TypeError('Blindkey mismatch');
-      else blindkey = _confidentialAddress().blindingKey;
     }
 
     if (a.blindkey) {

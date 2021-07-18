@@ -50,31 +50,6 @@ describe('address', () => {
     // });
   });
 
-  describe('fromBlech32', () => {
-    fixtures.standard.forEach(f => {
-      if (!f.bech32) return;
-
-      it('decodes ' + f.confidentialAddress, () => {
-        const actual = baddress.fromBlech32(f.confidentialAddress);
-        const expected = Buffer.concat([
-          Buffer.from([f.version, f.data!.length / 2]),
-          Buffer.from(f.data!, 'hex'),
-        ]).toString('hex');
-        assert.strictEqual(actual.version, f.version);
-        assert.strictEqual(actual.pubkey.toString('hex'), f.blindkey);
-        assert.strictEqual(actual.data.toString('hex'), expected);
-      });
-    });
-
-    // fixtures.invalid.bech32.forEach(f => {
-    //   it('decode fails for ' + f.address + '(' + f.exception + ')', () => {
-    //     assert.throws(() => {
-    //       baddress.fromBech32(f.address);
-    //     }, new RegExp(f.exception));
-    //   });
-    // });
-  });
-
   describe('fromOutputScript', () => {
     fixtures.standard.forEach(f => {
       it('encodes ' + f.script.slice(0, 30) + '... (' + f.network + ')', () => {
@@ -138,34 +113,6 @@ describe('address', () => {
       it('encode ' + f.address, () => {
         assert.deepStrictEqual(
           baddress.toBech32(data, f.version, f.prefix),
-          f.address,
-        );
-      });
-    });
-
-    // fixtures.invalid.bech32.forEach((f: any) => {
-    //   if (!f.prefix || f.version === undefined || f.data === undefined) return;
-
-    //   it('encode fails (' + f.exception, () => {
-    //     assert.throws(() => {
-    //       baddress.toBech32(Buffer.from(f.data, 'hex'), f.version, f.prefix);
-    //     }, new RegExp(f.exception));
-    //   });
-    // });
-  });
-
-  describe('toBlech32', () => {
-    fixtures.blech32.forEach(f => {
-      if (!f.address) return;
-      const data = Buffer.concat([
-        Buffer.from([f.version, f.data.length / 2]),
-        Buffer.from(f.data, 'hex'),
-      ]);
-      const blindkey = Buffer.from(f.blindkey, 'hex');
-
-      it('encode ' + f.address, () => {
-        assert.deepStrictEqual(
-          baddress.toBlech32(data, blindkey, f.prefix),
           f.address,
         );
       });

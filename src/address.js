@@ -16,7 +16,6 @@ const payments = __importStar(require('./payments'));
 const bscript = __importStar(require('./script'));
 const types = __importStar(require('./types'));
 const bech32 = require('bech32');
-const blech32 = require('@asoltys/blech32');
 const bs58check = require('bs58check');
 const typeforce = require('typeforce');
 function fromBase58Check(address) {
@@ -39,23 +38,8 @@ function fromBech32(address) {
   };
 }
 exports.fromBech32 = fromBech32;
-function fromBlech32(address) {
-  const prefix = address.substring(0, 2);
-  const result = blech32.decode(prefix, address);
-  const pubkey = result.words.slice(0, 33);
-  const prg = result.words.slice(33);
-  const data = Buffer.concat([Buffer.from([result.version, prg.length]), prg]);
-  return {
-    version: result.version,
-    pubkey,
-    data,
-  };
-}
-exports.fromBlech32 = fromBlech32;
 function fromConfidential(address) {
   const network = getNetwork(address);
-  if (address.startsWith(network.blech32))
-    return fromConfidentialSegwit(address, network);
   return fromConfidentialLegacy(address, network);
 }
 exports.fromConfidential = fromConfidential;
@@ -73,15 +57,8 @@ function toBech32(data, version, prefix) {
   return bech32.encode(prefix, words);
 }
 exports.toBech32 = toBech32;
-function toBlech32(data, pubkey, prefix) {
-  const words = Buffer.concat([pubkey, data.slice(2)]);
-  return blech32.encode(prefix, words);
-}
-exports.toBlech32 = toBlech32;
 function toConfidential(address, blindingKey) {
   const network = getNetwork(address);
-  if (address.startsWith(network.bech32))
-    return toConfidentialSegwit(address, blindingKey, network);
   return toConfidentialLegacy(address, blindingKey, network);
 }
 exports.toConfidential = toConfidential;
@@ -194,11 +171,6 @@ function fromConfidentialLegacy(address, network) {
   const unconfidentialAddress = bs58check.encode(unconfidentialAddressBuffer);
   return { blindingKey, unconfidentialAddress };
 }
-function fromConfidentialSegwit(address, network) {
-  const result = fromBlech32(address);
-  const unconfidentialAddress = fromOutputScript(result.data, network);
-  return { blindingKey: result.pubkey, unconfidentialAddress };
-}
 function toConfidentialLegacy(address, blindingKey, network) {
   const payload = bs58check.decode(address);
   const prefix = payload.readUInt8(0);
@@ -220,10 +192,6 @@ function toConfidentialLegacy(address, blindingKey, network) {
     Buffer.from(payload.slice(1)),
   ]);
   return bs58check.encode(confidentialAddress);
-}
-function toConfidentialSegwit(address, blindingKey, network) {
-  const data = toOutputScript(address, network);
-  return toBlech32(data, blindingKey, network.blech32);
 }
 /**
  * A quick check used to verify if a string could be a confidential segwit address.

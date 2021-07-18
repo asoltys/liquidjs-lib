@@ -8,7 +8,6 @@ import require$$3 from 'bitcoin-ops';
 import createHash from 'create-hash';
 import bs58check from 'bs58check';
 import bech32 from 'bech32';
-import blech32 from '@asoltys/blech32';
 import varuint$1 from 'varuint-bitcoin';
 import require$$2 from '@asoltys/secp256k1-zkp';
 import randomBytes$1 from 'randombytes';
@@ -1582,7 +1581,6 @@ var __importStar$9 =
     return result;
   };
 
-const baddress$1 = __importStar$9(address$1);
 const bcrypto$3 = __importStar$9(crypto$2);
 
 const bscript$3 = __importStar$9(script$1);
@@ -1630,17 +1628,6 @@ function p2wpkh$1(a, opts) {
       data: Buffer$1.from(data),
     };
   });
-  const _confidentialAddress = lazy$1.value(() => {
-    const result = baddress$1.fromBlech32(a.confidentialAddress);
-    return {
-      blindingKey: result.pubkey,
-      unconfidentialAddress: baddress$1.toBech32(
-        result.data.slice(2),
-        result.version,
-        network.bech32,
-      ),
-    };
-  });
   const o = { name: 'p2wpkh', network };
   lazy$1.prop(o, 'address', () => {
     if (!o.hash) return;
@@ -1652,10 +1639,6 @@ function p2wpkh$1(a, opts) {
     if (a.output) return a.output.slice(2, 22);
     if (a.address) return _address().data;
     if (a.pubkey || o.pubkey) return bcrypto$3.hash160(a.pubkey || o.pubkey);
-    if (a.confidentialAddress) {
-      const addr = _confidentialAddress().unconfidentialAddress;
-      return baddress$1.fromBech32(addr).data;
-    }
   });
   lazy$1.prop(o, 'output', () => {
     if (!o.hash) return;
@@ -1680,18 +1663,7 @@ function p2wpkh$1(a, opts) {
     return [a.signature, a.pubkey];
   });
   lazy$1.prop(o, 'blindkey', () => {
-    if (a.confidentialAddress) return _confidentialAddress().blindingKey;
     if (a.blindkey) return a.blindkey;
-  });
-  lazy$1.prop(o, 'confidentialAddress', () => {
-    if (!o.address) return;
-    if (!o.blindkey) return;
-    const res = baddress$1.fromBech32(o.address);
-    const data = Buffer$1.concat([
-      Buffer$1.from([res.version, res.data.length]),
-      res.data,
-    ]);
-    return baddress$1.toBlech32(data, o.blindkey, o.network.blech32);
   });
   // extended validation
   if (opts.validate) {
@@ -1742,19 +1714,6 @@ function p2wpkh$1(a, opts) {
       if (hash.length > 0 && !hash.equals(pkh))
         throw new TypeError('Hash mismatch');
     }
-    if (a.confidentialAddress) {
-      if (
-        a.address &&
-        a.address !== _confidentialAddress().unconfidentialAddress
-      )
-        throw new TypeError('Address mismatch');
-      if (
-        blindkey.length > 0 &&
-        !blindkey.equals(_confidentialAddress().blindingKey)
-      )
-        throw new TypeError('Blindkey mismatch');
-      else blindkey = _confidentialAddress().blindingKey;
-    }
     if (a.blindkey) {
       if (!ecc.isPoint(a.blindkey)) throw new TypeError('Blindkey is invalid');
       if (blindkey.length > 0 && !blindkey.equals(a.blindkey))
@@ -1782,7 +1741,6 @@ var __importStar$8 =
     return result;
   };
 
-const baddress = __importStar$8(address$1);
 const bcrypto$2 = __importStar$8(crypto$2);
 
 const bscript$2 = __importStar$8(script$1);
@@ -1848,17 +1806,6 @@ function p2wsh$1(a, opts) {
   const _rchunks = lazy.value(() => {
     return bscript$2.decompile(a.redeem.input);
   });
-  const _confidentialAddress = lazy.value(() => {
-    const result = baddress.fromBlech32(a.confidentialAddress);
-    return {
-      blindingKey: result.pubkey,
-      unconfidentialAddress: baddress.toBech32(
-        result.data.slice(2),
-        result.version,
-        network.bech32,
-      ),
-    };
-  });
   const o = { network };
   lazy.prop(o, 'address', () => {
     if (!o.hash) return;
@@ -1870,10 +1817,6 @@ function p2wsh$1(a, opts) {
     if (a.output) return a.output.slice(2);
     if (a.address) return _address().data;
     if (o.redeem && o.redeem.output) return bcrypto$2.sha256(o.redeem.output);
-    if (a.confidentialAddress) {
-      const addr = _confidentialAddress().unconfidentialAddress;
-      return baddress.fromBech32(addr).data;
-    }
   });
   lazy.prop(o, 'output', () => {
     if (!o.hash) return;
@@ -1917,18 +1860,7 @@ function p2wsh$1(a, opts) {
     return nameParts.join('-');
   });
   lazy.prop(o, 'blindkey', () => {
-    if (a.confidentialAddress) return _confidentialAddress().blindingKey;
     if (a.blindkey) return a.blindkey;
-  });
-  lazy.prop(o, 'confidentialAddress', () => {
-    if (!o.address) return;
-    if (!o.blindkey) return;
-    const res = baddress.fromBech32(o.address);
-    const data = Buffer$1.concat([
-      Buffer$1.from([res.version, res.data.length]),
-      res.data,
-    ]);
-    return baddress.toBlech32(data, o.blindkey, o.network.blech32);
   });
   // extended validation
   if (opts.validate) {
@@ -1998,19 +1930,6 @@ function p2wsh$1(a, opts) {
       )
         throw new TypeError('Witness and redeem.output mismatch');
     }
-    if (a.confidentialAddress) {
-      if (
-        a.address &&
-        a.address !== _confidentialAddress().unconfidentialAddress
-      )
-        throw new TypeError('Address mismatch');
-      if (
-        blindkey.length > 0 &&
-        !blindkey.equals(_confidentialAddress().blindingKey)
-      )
-        throw new TypeError('Blindkey mismatch');
-      else blindkey = _confidentialAddress().blindingKey;
-    }
     if (a.blindkey) {
       if (!ecc.isPoint(a.blindkey)) throw new TypeError('Blindkey is invalid');
       if (blindkey.length > 0 && !blindkey.equals(a.blindkey))
@@ -2071,7 +1990,6 @@ const types$3 = __importStar$7(types$5);
 
 
 
-
 function fromBase58Check(address) {
   const payload = bs58check.decode(address);
   // TODO: 4.0.0, move to "toOutputScript"
@@ -2092,23 +2010,8 @@ function fromBech32(address) {
   };
 }
 var fromBech32_1 = fromBech32;
-function fromBlech32(address) {
-  const prefix = address.substring(0, 2);
-  const result = blech32.decode(prefix, address);
-  const pubkey = result.words.slice(0, 33);
-  const prg = result.words.slice(33);
-  const data = Buffer$1.concat([Buffer$1.from([result.version, prg.length]), prg]);
-  return {
-    version: result.version,
-    pubkey,
-    data,
-  };
-}
-var fromBlech32_1 = fromBlech32;
 function fromConfidential(address) {
   const network = getNetwork(address);
-  if (address.startsWith(network.blech32))
-    return fromConfidentialSegwit(address, network);
   return fromConfidentialLegacy(address, network);
 }
 var fromConfidential_1 = fromConfidential;
@@ -2126,15 +2029,8 @@ function toBech32(data, version, prefix) {
   return bech32.encode(prefix, words);
 }
 var toBech32_1 = toBech32;
-function toBlech32(data, pubkey, prefix) {
-  const words = Buffer$1.concat([pubkey, data.slice(2)]);
-  return blech32.encode(prefix, words);
-}
-var toBlech32_1 = toBlech32;
 function toConfidential(address, blindingKey) {
   const network = getNetwork(address);
-  if (address.startsWith(network.bech32))
-    return toConfidentialSegwit(address, blindingKey, network);
   return toConfidentialLegacy(address, blindingKey, network);
 }
 var toConfidential_1 = toConfidential;
@@ -2247,11 +2143,6 @@ function fromConfidentialLegacy(address, network) {
   const unconfidentialAddress = bs58check.encode(unconfidentialAddressBuffer);
   return { blindingKey, unconfidentialAddress };
 }
-function fromConfidentialSegwit(address, network) {
-  const result = fromBlech32(address);
-  const unconfidentialAddress = fromOutputScript(result.data, network);
-  return { blindingKey: result.pubkey, unconfidentialAddress };
-}
 function toConfidentialLegacy(address, blindingKey, network) {
   const payload = bs58check.decode(address);
   const prefix = payload.readUInt8(0);
@@ -2273,10 +2164,6 @@ function toConfidentialLegacy(address, blindingKey, network) {
     Buffer$1.from(payload.slice(1)),
   ]);
   return bs58check.encode(confidentialAddress);
-}
-function toConfidentialSegwit(address, blindingKey, network) {
-  const data = toOutputScript(address, network);
-  return toBlech32(data, blindingKey, network.blech32);
 }
 /**
  * A quick check used to verify if a string could be a confidential segwit address.
@@ -2308,11 +2195,9 @@ var isConfidential_1 = isConfidential;
 var address$1 = /*#__PURE__*/Object.defineProperty({
 	fromBase58Check: fromBase58Check_1,
 	fromBech32: fromBech32_1,
-	fromBlech32: fromBlech32_1,
 	fromConfidential: fromConfidential_1,
 	toBase58Check: toBase58Check_1,
 	toBech32: toBech32_1,
-	toBlech32: toBlech32_1,
 	toConfidential: toConfidential_1,
 	fromOutputScript: fromOutputScript_1,
 	toOutputScript: toOutputScript_1,
